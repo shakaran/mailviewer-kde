@@ -43,7 +43,8 @@ sudo make install
 ```
 
 Needs Qt 6 with QtWebEngine (`qt6-base-dev`, `qt6-declarative-dev`, `qt6-webengine-dev`)
-and `libgmime-3.0-dev` for the core.
+and `libgmime-3.0-dev` for the core. Install `mold` too: GNU ld drops
+libQt6WebEngineQuick from the link and the build fails at the end.
 
 ## Why a second frontend
 
