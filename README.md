@@ -30,9 +30,7 @@ What is wired, second half:
 - Translations in Spanish, French, Italian and Dutch, loaded from the locale.
 - A desktop entry, an icon and `make install`.
 
-What is missing: a real print dialog rather than PDF export, and the flatpak manifest in
-`flatpak/` has not been built yet, there was no room for `org.kde.Sdk` on the machine this
-was written on.
+What is missing: a real print dialog rather than PDF export.
 
 ## Building
 
@@ -45,6 +43,12 @@ sudo make install
 Needs Qt 6 with QtWebEngine (`qt6-base-dev`, `qt6-declarative-dev`, `qt6-webengine-dev`)
 and `libgmime-3.0-dev` for the core. Install `mold` too: GNU ld drops
 libQt6WebEngineQuick from the link and the build fails at the end.
+
+As a flatpak, on the KDE 6.10 runtime:
+
+```
+flatpak-builder --user --install build flatpak/io.github.shakaran.mailviewerkde.yml
+```
 
 ## Why a second frontend
 
