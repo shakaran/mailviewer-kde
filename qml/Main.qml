@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtWebEngine
 import io.github.alescdb.mailviewer
 
 ApplicationWindow {
     id: window
-    width: 900
-    height: 700
+    width: 1000
+    height: 750
     visible: true
     title: message.subject.length > 0 ? message.subject : qsTr("MailViewer")
 
@@ -18,6 +19,67 @@ ApplicationWindow {
             if (Qt.application.arguments.length > 1) {
                 message.open(Qt.application.arguments[1])
             }
+        }
+    }
+
+    header: ToolBar {
+        RowLayout {
+            anchors.fill: parent
+
+            ToolButton {
+                text: qsTr("Open")
+                onClicked: openDialog.open()
+            }
+            ToolButton {
+                text: qsTr("Find")
+                onClicked: {
+                    searchBar.visible = !searchBar.visible
+                    if (searchBar.visible) searchField.forceActiveFocus()
+                    else view.findText("")
+                }
+            }
+            ToolButton {
+                text: qsTr("Export as PDF")
+                onClicked: pdfDialog.open()
+            }
+            Item { Layout.fillWidth: true }
+            CheckBox {
+                id: showImages
+                text: qsTr("Show remote images")
+                checked: false
+                // The policy travels with the html, so the message is rendered again.
+                onToggled: {
+                    message.allow_remote = checked
+                    message.reload()
+                }
+            }
+        }
+    }
+
+    FileDialog {
+        id: openDialog
+        title: qsTr("Open a message")
+        nameFilters: [qsTr("Mail files (*.eml *.msg)"), qsTr("All files (*)")]
+        onAccepted: message.open(selectedFile)
+    }
+
+    FileDialog {
+        id: pdfDialog
+        title: qsTr("Export as PDF")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "pdf"
+        nameFilters: [qsTr("PDF (*.pdf)")]
+        onAccepted: view.printToPdf(selectedFile)
+    }
+
+    FileDialog {
+        id: saveDialog
+        property int index: -1
+        title: qsTr("Save the attachment")
+        fileMode: FileDialog.SaveFile
+        onAccepted: {
+            var error = message.save_attachment(index, selectedFile)
+            if (error.length > 0) errorLabel.text = error
         }
     }
 
@@ -39,21 +101,46 @@ ApplicationWindow {
             Label { text: message.date; Layout.fillWidth: true }
         }
 
-        CheckBox {
-            id: showImages
-            text: qsTr("Show remote images")
-            checked: false
-            // The policy travels with the html, so the message is rendered again.
-            onToggled: {
-                message.allow_remote = checked
-                message.reload()
-            }
-        }
-
         Label {
-            visible: message.error.length > 0
+            id: errorLabel
+            visible: text.length > 0
             text: message.error
             color: "red"
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+        }
+
+        // Rides on the web view, the way the GTK one does.
+        Rectangle {
+            id: searchBar
+            visible: false
+            Layout.fillWidth: true
+            implicitHeight: searchRow.implicitHeight + 8
+            color: "transparent"
+
+            RowLayout {
+                id: searchRow
+                anchors.fill: parent
+                TextField {
+                    id: searchField
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("Find in message")
+                    onTextChanged: view.findText(text)
+                    onAccepted: view.findText(text)
+                    Keys.onEscapePressed: {
+                        view.findText("")
+                        searchBar.visible = false
+                    }
+                }
+                ToolButton {
+                    text: qsTr("Previous")
+                    onClicked: view.findText(searchField.text, WebEngineView.FindBackward)
+                }
+                ToolButton {
+                    text: qsTr("Next")
+                    onClicked: view.findText(searchField.text)
+                }
+            }
         }
 
         // The body arrives sanitized from the core, policy included. The
@@ -87,11 +174,59 @@ ApplicationWindow {
                 }
             }
 
+            onPdfPrintingFinished: function(path, success) {
+                if (!success) errorLabel.text = qsTr("Could not write the pdf")
+            }
+
             Component.onCompleted: loadHtml(message.body)
 
             Connections {
                 target: message
                 function onBodyChanged() { view.loadHtml(message.body) }
+            }
+        }
+
+        // Attachments, collapsed until there are any.
+        Frame {
+            Layout.fillWidth: true
+            visible: message.attachments.length > 0
+            Layout.maximumHeight: 160
+
+            ColumnLayout {
+                anchors.fill: parent
+                Label {
+                    text: qsTr("%n attachment(s)", "", message.attachments.length)
+                    font.bold: true
+                }
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: message.attachments
+                    delegate: RowLayout {
+                        width: ListView.view.width
+                        Label {
+                            text: modelData
+                            Layout.fillWidth: true
+                            elide: Text.ElideMiddle
+                        }
+                        ToolButton {
+                            text: qsTr("Open")
+                            onClicked: {
+                                var uri = message.attachment_to_tmp(index)
+                                if (uri.length > 0) Qt.openUrlExternally(uri)
+                                else errorLabel.text = qsTr("Could not extract the attachment")
+                            }
+                        }
+                        ToolButton {
+                            text: qsTr("Save as")
+                            onClicked: {
+                                saveDialog.index = index
+                                saveDialog.open()
+                            }
+                        }
+                    }
+                }
             }
         }
     }

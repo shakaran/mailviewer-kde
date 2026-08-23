@@ -5,13 +5,15 @@
 
 //! The message, as a QObject that QML can read.
 
-use cxx_qt_lib::QString;
+use cxx_qt_lib::{QString, QStringList};
 
 #[cxx_qt::bridge]
 pub mod qobject {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
+        include!("cxx-qt-lib/qstringlist.h");
+        type QStringList = cxx_qt_lib::QStringList;
     }
 
     unsafe extern "RustQt" {
@@ -24,6 +26,7 @@ pub mod qobject {
         #[qproperty(QString, body)]
         #[qproperty(QString, error)]
         #[qproperty(bool, allow_remote)]
+        #[qproperty(QStringList, attachments)]
         type Message = super::MessageRust;
 
         // Reads the file and fills the properties above.
@@ -33,12 +36,23 @@ pub mod qobject {
         // Renders the same file again, for when allow_remote changes.
         #[qinvokable]
         fn reload(self: Pin<&mut Message>);
+
+        // Writes an attachment where the user asked. Empty on failure.
+        #[qinvokable]
+        fn save_attachment(self: Pin<&mut Message>, index: i32, path: &QString) -> QString;
+
+        // Writes an attachment to the runtime directory and hands back its
+        // path, for opening it with whatever the desktop uses.
+        #[qinvokable]
+        fn attachment_to_tmp(self: Pin<&mut Message>, index: i32) -> QString;
     }
 }
 
 use core::pin::Pin;
 
 use cxx_qt::CxxQtType;
+use gio::prelude::*;
+use mailviewer_core::utils;
 
 #[derive(Default)]
 pub struct MessageRust {
@@ -50,6 +64,8 @@ pub struct MessageRust {
     error: QString,
     allow_remote: bool,
     path: String,
+    attachments: QStringList,
+    parts: Vec<mailviewer_core::message::attachment::Attachment>,
 }
 
 impl qobject::Message {
@@ -62,6 +78,36 @@ impl qobject::Message {
         self.render();
     }
 
+    fn save_attachment(self: Pin<&mut Self>, index: i32, path: &QString) -> QString {
+        let Some(attachment) = self.parts.get(index as usize).cloned() else {
+            return QString::from("no such attachment");
+        };
+        let file = gio::File::for_uri(&path.to_string());
+        match utils::spawn_and_wait(
+            Some(&glib::MainContext::new()),
+            async move { attachment.write_to_file(&file).await },
+        ) {
+            Ok(()) => QString::from(""),
+            Err(e) => QString::from(&e.to_string()),
+        }
+    }
+
+    fn attachment_to_tmp(self: Pin<&mut Self>, index: i32) -> QString {
+        let Some(attachment) = self.parts.get(index as usize).cloned() else {
+            return QString::from("");
+        };
+        match utils::spawn_and_wait(
+            Some(&glib::MainContext::new()),
+            async move { attachment.write_to_tmp().await },
+        ) {
+            Ok(file) => QString::from(&file.uri().to_string()),
+            Err(e) => {
+                log_error(&e.to_string());
+                QString::from("")
+            }
+        }
+    }
+
     fn render(mut self: Pin<&mut Self>) {
         let path = self.path.clone();
         let allow_remote = *self.allow_remote();
@@ -72,6 +118,8 @@ impl qobject::Message {
                 self.as_mut().set_subject(QString::from(&message.subject));
                 self.as_mut().set_date(QString::from(&message.date));
                 self.as_mut().set_body(QString::from(&message.body));
+                self.as_mut().set_attachments(names(&message.parts));
+                self.as_mut().rust_mut().parts = message.parts;
                 self.as_mut().set_error(QString::from(""));
             }
             Err(e) => {
@@ -87,6 +135,41 @@ struct Loaded {
     subject: String,
     date: String,
     body: String,
+    parts: Vec<mailviewer_core::message::attachment::Attachment>,
+}
+
+/// What the list shows: the name, the type and how big it is.
+fn names(parts: &[mailviewer_core::message::attachment::Attachment]) -> QStringList {
+    let mut list = QStringList::default();
+    for part in parts {
+        let mime = part.mime_type.as_deref().unwrap_or("unknown");
+        list.append(QString::from(&format!(
+            "{}  ({}, {})",
+            part.filename,
+            mime,
+            human_size(part.body.len())
+        )));
+    }
+    list
+}
+
+fn human_size(bytes: usize) -> String {
+    const UNITS: [&str; 4] = ["B", "kB", "MB", "GB"];
+    let mut size = bytes as f64;
+    let mut unit = 0;
+    while size >= 1024.0 && unit < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} {}", UNITS[0])
+    } else {
+        format!("{size:.1} {}", UNITS[unit])
+    }
+}
+
+fn log_error(message: &str) {
+    eprintln!("mailviewer-kde: {message}");
 }
 
 /// Everything below is the core doing the work: parsing and sanitizing are the
@@ -121,6 +204,7 @@ fn load(path: &str, allow_remote: bool) -> Result<Loaded, Box<dyn std::error::Er
             subject: parser.subject(),
             date: parser.date(),
             body,
+            parts: attachments,
         })
     })?;
 
