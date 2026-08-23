@@ -15,18 +15,11 @@ unsafe extern "C" {
 }
 
 /// Where the compiled translations are: next to the binary while developing,
-/// and the usual share directory once installed.
+/// and under the prefix the binary was installed in, which is /app on flatpak
+/// and /usr on a normal install.
 fn translations_dir() -> std::ffi::CString {
-    let candidates = [
-        std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|dir| dir.join("i18n"))),
-        Some(std::path::PathBuf::from("i18n")),
-        Some(std::path::PathBuf::from(
-            "/usr/share/mailviewer-kde/translations",
-        )),
-    ];
-    for candidate in candidates.into_iter().flatten() {
+    let exe = std::env::current_exe().ok();
+    for candidate in translation_candidates(exe.as_deref()) {
         if candidate.is_dir() {
             if let Ok(path) = std::ffi::CString::new(candidate.to_string_lossy().as_bytes()) {
                 return path;
@@ -34,6 +27,47 @@ fn translations_dir() -> std::ffi::CString {
         }
     }
     std::ffi::CString::new("").unwrap()
+}
+
+fn translation_candidates(exe: Option<&std::path::Path>) -> Vec<std::path::PathBuf> {
+    let exe_dir = exe.and_then(|exe| exe.parent());
+    let mut candidates = Vec::new();
+
+    if let Some(dir) = exe_dir {
+        candidates.push(dir.join("i18n"));
+        // <prefix>/bin/mailviewer-kde installs its translations here.
+        if let Some(prefix) = dir.parent() {
+            candidates.push(prefix.join("share/mailviewer-kde/translations"));
+        }
+    }
+    candidates.push(std::path::PathBuf::from("i18n"));
+    candidates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::translation_candidates;
+    use std::path::{Path, PathBuf};
+
+    fn candidates(exe: &str) -> Vec<PathBuf> {
+        translation_candidates(Some(Path::new(exe)))
+    }
+
+    #[test]
+    fn looks_under_the_prefix_it_was_installed_in() {
+        assert!(candidates("/app/bin/mailviewer-kde")
+            .contains(&PathBuf::from("/app/share/mailviewer-kde/translations")));
+        assert!(candidates("/usr/bin/mailviewer-kde")
+            .contains(&PathBuf::from("/usr/share/mailviewer-kde/translations")));
+    }
+
+    #[test]
+    fn looks_next_to_the_binary_first() {
+        assert_eq!(
+            candidates("/home/user/mailviewer-kde/target/release/mailviewer-kde")[0],
+            PathBuf::from("/home/user/mailviewer-kde/target/release/i18n")
+        );
+    }
 }
 
 fn main() {
