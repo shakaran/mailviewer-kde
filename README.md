@@ -22,14 +22,24 @@ What is wired:
 - JavaScript off, an off the record profile, and links handed to the system handler only
   when the scheme is http, https or mailto.
 
-What is missing: attachments, printing, searching, translations, a desktop file and
-packaging.
+What is wired, second half:
+
+- Attachments, with name, type and size, opened with whatever the desktop uses or saved
+  somewhere.
+- Find in the message, and export as PDF, both through QtWebEngine.
+- Translations in Spanish, French, Italian and Dutch, loaded from the locale.
+- A desktop entry, an icon and `make install`.
+
+What is missing: a real print dialog rather than PDF export, and the flatpak manifest in
+`flatpak/` has not been built yet, there was no room for `org.kde.Sdk` on the machine this
+was written on.
 
 ## Building
 
 ```
-cargo build
-cargo run -- sample.eml
+make            # builds, translations included
+make run
+sudo make install
 ```
 
 Needs Qt 6 with QtWebEngine (`qt6-base-dev`, `qt6-declarative-dev`, `qt6-webengine-dev`)

@@ -8,5 +8,6 @@ fn main() {
     .qt_module("WebEngineQuick")
     .files(["src/bridge.rs"])
     .cpp_file("cpp/webengine.cpp")
+    .cpp_file("cpp/i18n.cpp")
     .build();
 }

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MailViewer (KDE)
+Comment=Read eml and Outlook msg files
+Exec=mailviewer-kde %f
+Icon=io.github.shakaran.mailviewerkde
+Terminal=false
+Categories=Qt;KDE;Network;Email;Utility;
+MimeType=message/rfc822;application/vnd.ms-outlook;application/x-ole-storage;
+StartupNotify=true

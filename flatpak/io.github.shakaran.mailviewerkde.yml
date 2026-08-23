@@ -1,0 +1,43 @@
+# Untested: building this needs org.kde.Sdk, which would not fit on the machine
+# where the rest of this was checked. Treat it as a starting point.
+id: io.github.shakaran.mailviewerkde
+runtime: org.kde.Platform
+runtime-version: "6.9"
+sdk: org.kde.Sdk
+base: io.qt.qtwebengine.BaseApp
+base-version: "6.9"
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: mailviewer-kde
+
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # For the images a message pulls in, once the user asks for them.
+  - --share=network
+  # Attachments are extracted here before being handed to another application.
+  - --filesystem=xdg-run/mailviewer-kde:create
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/mailviewer-kde/cargo
+
+modules:
+  - name: gmime
+    sources:
+      - type: archive
+        url: https://github.com/jstedfast/gmime/releases/download/3.2.15/gmime-3.2.15.tar.xz
+        sha256: 84cd2a481a27970ec39b5c95f72db026722904a2ccf3fdbd57b280cf2d02b5c4
+
+  - name: mailviewer-kde
+    buildsystem: simple
+    build-commands:
+      - /usr/lib/qt6/bin/lrelease i18n/*.ts
+      - cargo --offline build --release
+      - make install PREFIX=/app QT_LRELEASE=/usr/lib/qt6/bin/lrelease
+    sources:
+      - type: dir
+        path: ..

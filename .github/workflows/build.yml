@@ -1,0 +1,32 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: "cargo build"
+    runs-on: ubuntu-24.04
+
+    # Qt 6.10 and the gmime the core wants are not in the runner image.
+    container:
+      image: ubuntu:26.04
+
+    steps:
+      - name: install dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+            build-essential ca-certificates cargo git libgmime-3.0-dev pkg-config rustc \
+            qt6-base-dev qt6-declarative-dev qt6-tools-dev-tools qt6-webengine-dev \
+            shared-mime-info
+
+      - uses: actions/checkout@v6
+
+      - name: translations
+        run: /usr/lib/qt6/bin/lrelease i18n/*.ts
+
+      - name: cargo build
+        run: cargo build
