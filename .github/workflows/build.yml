@@ -23,7 +23,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
             appstream build-essential ca-certificates cargo git libgmime-3.0-dev \
             mold pkg-config rust-clippy rustc \
-            qt6-base-dev qt6-declarative-dev qt6-tools-dev-tools qt6-webengine-dev \
+            qt6-base-dev qt6-declarative-dev qt6-pdf-dev qt6-tools-dev-tools qt6-webengine-dev \
             shared-mime-info
 
       - uses: actions/checkout@v6

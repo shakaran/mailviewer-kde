@@ -5,13 +5,17 @@
 
 pub mod bridge;
 
-use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
+use cxx_qt_lib::{QQmlApplicationEngine, QUrl};
 
 unsafe extern "C" {
     /// Defined in cpp/webengine.cpp
     fn mailviewer_init_web_engine();
     /// Defined in cpp/i18n.cpp
     fn mailviewer_install_translator(directory: *const std::ffi::c_char);
+    /// Defined in cpp/app.cpp
+    fn mailviewer_app_create(argc: std::ffi::c_int, argv: *mut *mut std::ffi::c_char);
+    /// Defined in cpp/app.cpp
+    fn mailviewer_app_exec() -> std::ffi::c_int;
 }
 
 /// Where the compiled translations are: next to the binary while developing,
@@ -48,15 +52,21 @@ fn main() {
     // Has to happen before the application exists.
     unsafe { mailviewer_init_web_engine() };
 
-    let mut app = QGuiApplication::new();
+    // QApplication keeps pointing at both for as long as it lives.
+    let arguments: Vec<std::ffi::CString> = std::env::args()
+        .filter_map(|argument| std::ffi::CString::new(argument).ok())
+        .collect();
+    let mut argv: Vec<*mut std::ffi::c_char> = arguments
+        .iter()
+        .map(|argument| argument.as_ptr() as *mut std::ffi::c_char)
+        .collect();
+    argv.push(std::ptr::null_mut());
+    let argc = arguments.len() as std::ffi::c_int;
+    let arguments = Box::leak(arguments.into_boxed_slice());
+    let argv = Box::leak(argv.into_boxed_slice());
+    debug_assert!(!arguments.is_empty());
 
-    // Without a name QSettings has no file to keep the zoom in.
-    if let Some(mut app) = app.as_mut() {
-        app.as_mut()
-            .set_organization_name(&QString::from("io.github.shakaran"));
-        app.as_mut()
-            .set_application_name(&QString::from("mailviewer-kde"));
-    }
+    unsafe { mailviewer_app_create(argc, argv.as_mut_ptr()) };
 
     let translations = translations_dir();
     unsafe { mailviewer_install_translator(translations.as_ptr()) };
@@ -68,9 +78,7 @@ fn main() {
         ));
     }
 
-    if let Some(app) = app.as_mut() {
-        app.exec();
-    }
+    std::process::exit(unsafe { mailviewer_app_exec() });
 }
 
 #[cfg(test)]

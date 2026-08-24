@@ -25,6 +25,19 @@ ApplicationWindow {
         property real zoom: 1.0
     }
 
+    // The view only writes pdfs, so printing goes through one and it is
+    // removed as soon as the job is out.
+    property bool printing: false
+
+    function printMessage() {
+        var folder = StandardPaths.writableLocation(StandardPaths.RuntimeLocation)
+        if (folder.toString().length === 0) {
+            folder = StandardPaths.writableLocation(StandardPaths.TempLocation)
+        }
+        window.printing = true
+        view.printToPdf(folder.toString().replace(/^file:\/\//, "") + "/mailviewer-kde-print.pdf")
+    }
+
     function clampZoom(value) {
         return Math.min(window.zoomMax, Math.max(window.zoomMin, value))
     }
@@ -46,6 +59,10 @@ ApplicationWindow {
     Shortcut {
         sequences: ["Ctrl+0"]
         onActivated: window.setZoom(1.0)
+    }
+    Shortcut {
+        sequences: [StandardKey.Print]
+        onActivated: window.printMessage()
     }
 
     Message {
@@ -76,6 +93,11 @@ ApplicationWindow {
             ToolButton {
                 text: qsTr("Export as PDF")
                 onClicked: pdfDialog.open()
+            }
+            ToolButton {
+                text: qsTr("Print")
+                enabled: !window.printing
+                onClicked: window.printMessage()
             }
             Item { Layout.fillWidth: true }
             ToolButton {
@@ -226,7 +248,17 @@ ApplicationWindow {
             }
 
             onPdfPrintingFinished: function(path, success) {
-                if (!success) errorLabel.text = qsTr("Could not write the pdf")
+                if (!window.printing) {
+                    if (!success) errorLabel.text = qsTr("Could not write the pdf")
+                    return
+                }
+                window.printing = false
+                if (!success) {
+                    errorLabel.text = qsTr("Could not prepare the message for printing")
+                    return
+                }
+                var error = message.print_pdf(path)
+                if (error.length > 0) errorLabel.text = error
             }
 
             Component.onCompleted: loadHtml(message.body)
