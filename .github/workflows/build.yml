@@ -21,14 +21,24 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
-            build-essential ca-certificates cargo git libgmime-3.0-dev mold pkg-config rustc \
+            appstream build-essential ca-certificates cargo git libgmime-3.0-dev \
+            mold pkg-config rust-clippy rustc \
             qt6-base-dev qt6-declarative-dev qt6-tools-dev-tools qt6-webengine-dev \
             shared-mime-info
 
       - uses: actions/checkout@v6
+
+      - name: validate metainfo
+        run: appstreamcli validate data/io.github.shakaran.mailviewerkde.metainfo.xml
 
       - name: translations
         run: /usr/lib/qt6/bin/lrelease i18n/*.ts
 
       - name: cargo build
         run: cargo build
+
+      - name: cargo test
+        run: cargo test
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
