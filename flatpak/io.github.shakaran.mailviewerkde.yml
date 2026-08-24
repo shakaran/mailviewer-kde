@@ -22,6 +22,8 @@ finish-args:
   - --share=network
   # Attachments are extracted here before being handed to another application.
   - --filesystem=xdg-run/mailviewer-kde:create
+  # The print dialog talks to cups.
+  - --socket=cups
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin

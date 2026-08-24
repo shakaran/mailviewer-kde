@@ -4,109 +4,122 @@
 <context>
     <name>Main</name>
     <message>
-        <location filename="../qml/Main.qml" line="14"/>
+        <location filename="../qml/Main.qml" line="15"/>
         <source>MailViewer</source>
         <translation>MailViewer</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="30"/>
-        <location filename="../qml/Main.qml" line="214"/>
+        <location filename="../qml/Main.qml" line="82"/>
+        <location filename="../qml/Main.qml" line="297"/>
         <source>Open</source>
         <translation>Apri</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="34"/>
+        <location filename="../qml/Main.qml" line="86"/>
         <source>Find</source>
         <translation>Cerca</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="42"/>
-        <location filename="../qml/Main.qml" line="68"/>
+        <location filename="../qml/Main.qml" line="94"/>
+        <location filename="../qml/Main.qml" line="139"/>
         <source>Export as PDF</source>
         <translation>Esporta in PDF</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="48"/>
+        <location filename="../qml/Main.qml" line="98"/>
+        <source>Print</source>
+        <translation>Stampa</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="119"/>
         <source>Show remote images</source>
         <translation>Mostra immagini remote</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="61"/>
+        <location filename="../qml/Main.qml" line="132"/>
         <source>Open a message</source>
         <translation>Apri un messaggio</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="62"/>
+        <location filename="../qml/Main.qml" line="133"/>
         <source>Mail files (*.eml *.msg)</source>
         <translation>File di posta (*.eml *.msg)</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="62"/>
+        <location filename="../qml/Main.qml" line="133"/>
         <source>All files (*)</source>
         <translation>Tutti i file (*)</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="71"/>
+        <location filename="../qml/Main.qml" line="142"/>
         <source>PDF (*.pdf)</source>
         <translation>PDF (*.pdf)</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="78"/>
+        <location filename="../qml/Main.qml" line="149"/>
         <source>Save the attachment</source>
-        <translation>Salva l'allegato</translation>
+        <translation>Salva l&apos;allegato</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="94"/>
+        <location filename="../qml/Main.qml" line="165"/>
         <source>From:</source>
         <translation>Da:</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="96"/>
+        <location filename="../qml/Main.qml" line="167"/>
         <source>To:</source>
         <translation>A:</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="98"/>
+        <location filename="../qml/Main.qml" line="169"/>
         <source>Subject:</source>
         <translation>Soggetto:</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="100"/>
+        <location filename="../qml/Main.qml" line="171"/>
         <source>Date:</source>
         <translation>Data:</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="127"/>
+        <location filename="../qml/Main.qml" line="198"/>
         <source>Find in message</source>
         <translation>Cerca nel messaggio</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="136"/>
+        <location filename="../qml/Main.qml" line="207"/>
         <source>Previous</source>
         <translation>Precedente</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="140"/>
+        <location filename="../qml/Main.qml" line="211"/>
         <source>Next</source>
         <translation>Successivo</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="178"/>
+        <location filename="../qml/Main.qml" line="252"/>
         <source>Could not write the pdf</source>
         <translation>Impossibile scrivere il PDF</translation>
     </message>
+    <message>
+        <location filename="../qml/Main.qml" line="257"/>
+        <source>Could not prepare the message for printing</source>
+        <translation>Impossibile preparare il messaggio per la stampa</translation>
+    </message>
     <message numerus="yes">
-        <location filename="../qml/Main.qml" line="198"/>
+        <location filename="../qml/Main.qml" line="281"/>
         <source>%n attachment(s)</source>
-        <translation><numerusform>%n allegato</numerusform><numerusform>%n allegati</numerusform></translation>
+        <translation>
+            <numerusform>%n allegato</numerusform>
+            <numerusform>%n allegati</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="218"/>
+        <location filename="../qml/Main.qml" line="301"/>
         <source>Could not extract the attachment</source>
-        <translation>Impossibile estrarre l'allegato</translation>
+        <translation>Impossibile estrarre l&apos;allegato</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="222"/>
+        <location filename="../qml/Main.qml" line="305"/>
         <source>Save as</source>
         <translation>Salva con nome</translation>
     </message>

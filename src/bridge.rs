@@ -45,6 +45,11 @@ pub mod qobject {
         // path, for opening it with whatever the desktop uses.
         #[qinvokable]
         fn attachment_to_tmp(self: Pin<&mut Message>, index: i32) -> QString;
+
+        // Sends a pdf written by the view to the printer the user picks, and
+        // removes it afterwards. Empty when it went out or was cancelled.
+        #[qinvokable]
+        fn print_pdf(self: Pin<&mut Message>, path: &QString) -> QString;
     }
 }
 
@@ -53,6 +58,11 @@ use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use gio::prelude::*;
 use mailviewer_core::utils;
+
+unsafe extern "C" {
+    /// Defined in cpp/print.cpp
+    fn mailviewer_print_pdf(path: *const std::ffi::c_char) -> *const std::ffi::c_char;
+}
 
 #[derive(Default)]
 pub struct MessageRust {
@@ -90,6 +100,27 @@ impl qobject::Message {
             Ok(()) => QString::from(""),
             Err(e) => QString::from(&e.to_string()),
         }
+    }
+
+    fn print_pdf(self: Pin<&mut Self>, path: &QString) -> QString {
+        let path = gio::File::for_uri(&path.to_string())
+            .path()
+            .unwrap_or_else(|| std::path::PathBuf::from(path.to_string()));
+        let Ok(as_c) = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()) else {
+            return QString::from("bad path");
+        };
+
+        let error = unsafe { mailviewer_print_pdf(as_c.as_ptr()) };
+        let error = if error.is_null() {
+            QString::from("")
+        } else {
+            let error = unsafe { std::ffi::CStr::from_ptr(error) };
+            QString::from(error.to_string_lossy().as_ref())
+        };
+
+        // Nothing of the message has any business staying on disk.
+        let _ = std::fs::remove_file(&path);
+        error
     }
 
     fn attachment_to_tmp(self: Pin<&mut Self>, index: i32) -> QString {
