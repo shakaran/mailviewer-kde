@@ -26,11 +26,13 @@ What is wired, second half:
 
 - Attachments, with name, type and size, opened with whatever the desktop uses or saved
   somewhere.
-- Find in the message, and export as PDF, both through QtWebEngine.
+- Find in the message, export as PDF, and print through the system dialog.
+- Zoom with the usual shortcuts, remembered between sessions.
 - Translations in Spanish, French, Italian and Dutch, loaded from the locale.
 - A desktop entry, an icon and `make install`.
 
-What is missing: a real print dialog rather than PDF export.
+The pages go to the printer as images rendered at 300 dpi, because QtPdf is what
+turns the pdf the view writes into something a QPainter can draw.
 
 ## Building
 
@@ -41,7 +43,7 @@ sudo make install
 ```
 
 Needs Qt 6 with QtWebEngine (`qt6-base-dev`, `qt6-declarative-dev`, `qt6-webengine-dev`)
-and `libgmime-3.0-dev` for the core. Install `mold` too: GNU ld drops
+and `libgmime-3.0-dev` for the core, plus `qt6-pdf-dev` for printing. Install `mold` too: GNU ld drops
 libQt6WebEngineQuick from the link and the build fails at the end.
 
 As a flatpak, on the KDE 6.10 runtime:
