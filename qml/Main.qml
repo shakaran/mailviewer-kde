@@ -295,6 +295,27 @@ ApplicationWindow {
             Label { text: message.date; Layout.fillWidth: true }
         }
 
+        // Nothing is checked and nothing is decrypted, so this only repeats what
+        // the message says about itself.
+        Rectangle {
+            visible: message.protection.length > 0
+            Layout.fillWidth: true
+            implicitHeight: protectionLabel.implicitHeight + 12
+            color: palette.alternateBase
+            border.color: palette.mid
+            radius: 4
+
+            Label {
+                id: protectionLabel
+                anchors.fill: parent
+                anchors.margins: 6
+                wrapMode: Text.Wrap
+                text: message.protection === "encrypted"
+                    ? qsTr("This message is encrypted. MailViewer cannot show what is inside.")
+                    : qsTr("This message is signed. MailViewer does not check the signature.")
+            }
+        }
+
         Label {
             id: errorLabel
             visible: text.length > 0
