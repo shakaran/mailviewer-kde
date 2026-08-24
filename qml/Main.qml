@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
@@ -12,6 +13,40 @@ ApplicationWindow {
     height: 750
     visible: true
     title: message.subject.length > 0 ? message.subject : qsTr("MailViewer")
+
+    // The range the GTK application clamps to, so both behave the same.
+    readonly property real zoomMin: 0.3
+    readonly property real zoomMax: 5.0
+    readonly property real zoomStep: 0.1
+
+    // Kept between sessions, the way the GTK one keeps it in gsettings.
+    Settings {
+        id: prefs
+        property real zoom: 1.0
+    }
+
+    function clampZoom(value) {
+        return Math.min(window.zoomMax, Math.max(window.zoomMin, value))
+    }
+
+    function setZoom(value) {
+        // Stepping by 0.1 drifts, and the label would show 89% for 0.9.
+        prefs.zoom = Math.round(window.clampZoom(value) * 100) / 100
+    }
+
+    // sequences, not sequence: zoom in alone answers to three key bindings.
+    Shortcut {
+        sequences: [StandardKey.ZoomIn, "Ctrl+="]
+        onActivated: window.setZoom(prefs.zoom + window.zoomStep)
+    }
+    Shortcut {
+        sequences: [StandardKey.ZoomOut]
+        onActivated: window.setZoom(prefs.zoom - window.zoomStep)
+    }
+    Shortcut {
+        sequences: ["Ctrl+0"]
+        onActivated: window.setZoom(1.0)
+    }
 
     Message {
         id: message
@@ -43,6 +78,20 @@ ApplicationWindow {
                 onClicked: pdfDialog.open()
             }
             Item { Layout.fillWidth: true }
+            ToolButton {
+                text: "\u2212"
+                enabled: prefs.zoom > window.zoomMin
+                onClicked: window.setZoom(prefs.zoom - window.zoomStep)
+            }
+            ToolButton {
+                text: Math.round(window.clampZoom(prefs.zoom) * 100) + "%"
+                onClicked: window.setZoom(1.0)
+            }
+            ToolButton {
+                text: "+"
+                enabled: prefs.zoom < window.zoomMax
+                onClicked: window.setZoom(prefs.zoom + window.zoomStep)
+            }
             CheckBox {
                 id: showImages
                 text: qsTr("Show remote images")
@@ -149,6 +198,8 @@ ApplicationWindow {
             id: view
             Layout.fillWidth: true
             Layout.fillHeight: true
+
+            zoomFactor: window.clampZoom(prefs.zoom)
 
             settings.javascriptEnabled: false
             settings.localContentCanAccessFileUrls: false
