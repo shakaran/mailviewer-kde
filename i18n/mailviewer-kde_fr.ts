@@ -10,7 +10,7 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="87"/>
-        <location filename="../qml/Main.qml" line="420"/>
+        <location filename="../qml/Main.qml" line="441"/>
         <source>Open</source>
         <translation>Ouvrir</translation>
     </message>
@@ -60,7 +60,7 @@
     <message>
         <location filename="../qml/Main.qml" line="154"/>
         <source>Keys imported into MailViewer. Your own keyring is not read.</source>
-        <translation>Clés importées dans MailViewer. Le trousseau personnel n'est pas lu.</translation>
+        <translation>Clés importées dans MailViewer. Le trousseau personnel n&apos;est pas lu.</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="182"/>
@@ -70,7 +70,7 @@
     <message>
         <location filename="../qml/Main.qml" line="194"/>
         <source>No keys yet.</source>
-        <translation>Aucune clé pour l'instant.</translation>
+        <translation>Aucune clé pour l&apos;instant.</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="216"/>
@@ -119,32 +119,42 @@
         <translation>Date :</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="321"/>
+        <location filename="../qml/Main.qml" line="314"/>
+        <source>This message is encrypted. MailViewer cannot show what is inside.</source>
+        <translation>Ce message est chiffré. MailViewer ne peut pas afficher son contenu.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="315"/>
+        <source>This message is signed. MailViewer does not check the signature.</source>
+        <translation>Ce message est signé. MailViewer ne vérifie pas la signature.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="342"/>
         <source>Find in message</source>
         <translation>Rechercher dans le message</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="330"/>
+        <location filename="../qml/Main.qml" line="351"/>
         <source>Previous</source>
         <translation>Précédent</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="334"/>
+        <location filename="../qml/Main.qml" line="355"/>
         <source>Next</source>
         <translation>Suivant</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="375"/>
+        <location filename="../qml/Main.qml" line="396"/>
         <source>Could not write the pdf</source>
         <translation>Impossible d&apos;écrire le PDF</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="380"/>
+        <location filename="../qml/Main.qml" line="401"/>
         <source>Could not prepare the message for printing</source>
         <translation>Impossible de préparer le message pour l&apos;impression</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/Main.qml" line="404"/>
+        <location filename="../qml/Main.qml" line="425"/>
         <source>%n attachment(s)</source>
         <translation>
             <numerusform>%n pièce jointe</numerusform>
@@ -152,12 +162,12 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="424"/>
+        <location filename="../qml/Main.qml" line="445"/>
         <source>Could not extract the attachment</source>
         <translation>Impossible d&apos;extraire la pièce jointe</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="428"/>
+        <location filename="../qml/Main.qml" line="449"/>
         <source>Save as</source>
         <translation>Enregistrer sous</translation>
     </message>

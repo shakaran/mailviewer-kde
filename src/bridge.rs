@@ -25,6 +25,8 @@ pub mod qobject {
         #[qproperty(QString, date)]
         #[qproperty(QString, body)]
         #[qproperty(QString, error)]
+        // What the message says about itself: empty, "signed" or "encrypted".
+        #[qproperty(QString, protection)]
         #[qproperty(bool, allow_remote)]
         #[qproperty(QStringList, attachments)]
         type Message = super::MessageRust;
@@ -72,6 +74,7 @@ pub struct MessageRust {
     date: QString,
     body: QString,
     error: QString,
+    protection: QString,
     allow_remote: bool,
     path: String,
     attachments: QStringList,
@@ -148,6 +151,8 @@ impl qobject::Message {
                 self.as_mut().set_to(QString::from(&message.to));
                 self.as_mut().set_subject(QString::from(&message.subject));
                 self.as_mut().set_date(QString::from(&message.date));
+                self.as_mut()
+                    .set_protection(QString::from(message.protection));
                 self.as_mut().set_body(QString::from(&message.body));
                 self.as_mut().set_attachments(names(&message.parts));
                 self.as_mut().rust_mut().parts = message.parts;
@@ -161,6 +166,7 @@ impl qobject::Message {
 }
 
 struct Loaded {
+    protection: &'static str,
     from: String,
     to: String,
     subject: String,
@@ -207,7 +213,7 @@ fn log_error(message: &str) {
 /// same ones the GTK application uses.
 fn load(path: &str, allow_remote: bool) -> Result<Loaded, Box<dyn std::error::Error>> {
     use mailviewer_core::html::Html;
-    use mailviewer_core::message::message::{Message as _, MessageParser};
+    use mailviewer_core::message::message::{Message as _, MessageParser, Protection};
     use mailviewer_core::utils;
 
     let file = gio::File::for_path(path);
@@ -230,6 +236,11 @@ fn load(path: &str, allow_remote: bool) -> Result<Loaded, Box<dyn std::error::Er
         };
 
         Ok::<Loaded, Box<dyn std::error::Error>>(Loaded {
+            protection: match parser.protection() {
+                Protection::Encrypted => "encrypted",
+                Protection::Signed => "signed",
+                Protection::None => "",
+            },
             from: parser.from(),
             to: parser.to(),
             subject: parser.subject(),

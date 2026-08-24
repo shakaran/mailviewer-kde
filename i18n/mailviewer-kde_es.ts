@@ -10,7 +10,7 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="87"/>
-        <location filename="../qml/Main.qml" line="420"/>
+        <location filename="../qml/Main.qml" line="441"/>
         <source>Open</source>
         <translation>Abrir</translation>
     </message>
@@ -119,32 +119,42 @@
         <translation>Fecha:</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="321"/>
+        <location filename="../qml/Main.qml" line="314"/>
+        <source>This message is encrypted. MailViewer cannot show what is inside.</source>
+        <translation>Este mensaje está cifrado. MailViewer no puede mostrar su contenido.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="315"/>
+        <source>This message is signed. MailViewer does not check the signature.</source>
+        <translation>Este mensaje está firmado. MailViewer no comprueba la firma.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="342"/>
         <source>Find in message</source>
         <translation>Buscar en el mensaje</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="330"/>
+        <location filename="../qml/Main.qml" line="351"/>
         <source>Previous</source>
         <translation>Anterior</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="334"/>
+        <location filename="../qml/Main.qml" line="355"/>
         <source>Next</source>
         <translation>Siguiente</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="375"/>
+        <location filename="../qml/Main.qml" line="396"/>
         <source>Could not write the pdf</source>
         <translation>No se pudo escribir el PDF</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="380"/>
+        <location filename="../qml/Main.qml" line="401"/>
         <source>Could not prepare the message for printing</source>
         <translation>No se pudo preparar el mensaje para imprimir</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/Main.qml" line="404"/>
+        <location filename="../qml/Main.qml" line="425"/>
         <source>%n attachment(s)</source>
         <translation>
             <numerusform>%n adjunto</numerusform>
@@ -152,12 +162,12 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="424"/>
+        <location filename="../qml/Main.qml" line="445"/>
         <source>Could not extract the attachment</source>
         <translation>No se pudo extraer el adjunto</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="428"/>
+        <location filename="../qml/Main.qml" line="449"/>
         <source>Save as</source>
         <translation>Guardar como</translation>
     </message>
