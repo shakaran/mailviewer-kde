@@ -5,7 +5,7 @@
 
 pub mod bridge;
 
-use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QUrl};
+use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 
 unsafe extern "C" {
     /// Defined in cpp/webengine.cpp
@@ -49,6 +49,14 @@ fn main() {
     unsafe { mailviewer_init_web_engine() };
 
     let mut app = QGuiApplication::new();
+
+    // Without a name QSettings has no file to keep the zoom in.
+    if let Some(mut app) = app.as_mut() {
+        app.as_mut()
+            .set_organization_name(&QString::from("io.github.shakaran"));
+        app.as_mut()
+            .set_application_name(&QString::from("mailviewer-kde"));
+    }
 
     let translations = translations_dir();
     unsafe { mailviewer_install_translator(translations.as_ptr()) };
