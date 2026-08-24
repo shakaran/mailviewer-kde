@@ -28,6 +28,8 @@ What is wired, second half:
   somewhere.
 - Find in the message, export as PDF, and print through the system dialog.
 - Zoom with the usual shortcuts, remembered between sessions.
+- A keyring of its own, in the data folder of the application, with importing and
+  removing keys. `~/.gnupg` is never read, and the sandbox is not opened for it.
 - Translations in Spanish, French, Italian and Dutch, loaded from the locale.
 - A desktop entry, an icon and `make install`.
 
@@ -43,7 +45,8 @@ sudo make install
 ```
 
 Needs Qt 6 with QtWebEngine (`qt6-base-dev`, `qt6-declarative-dev`, `qt6-webengine-dev`)
-and `libgmime-3.0-dev` for the core, plus `qt6-pdf-dev` for printing. Install `mold` too: GNU ld drops
+and `libgmime-3.0-dev` for the core, plus `qt6-pdf-dev` for printing and `gnupg`
+for the keyring. Install `mold` too: GNU ld drops
 libQt6WebEngineQuick from the link and the build fails at the end.
 
 As a flatpak, on the KDE 6.10 runtime:

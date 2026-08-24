@@ -4,6 +4,8 @@
  */
 
 pub mod bridge;
+pub mod keybridge;
+pub mod keys;
 
 use cxx_qt_lib::{QQmlApplicationEngine, QUrl};
 
