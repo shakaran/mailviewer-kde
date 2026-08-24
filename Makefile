@@ -17,6 +17,8 @@ install: all
 		$(DESTDIR)$(PREFIX)/share/applications/io.github.shakaran.mailviewerkde.desktop
 	install -Dm644 data/io.github.shakaran.mailviewerkde.svg \
 		$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/io.github.shakaran.mailviewerkde.svg
+	install -Dm644 data/io.github.shakaran.mailviewerkde.metainfo.xml \
+		$(DESTDIR)$(PREFIX)/share/metainfo/io.github.shakaran.mailviewerkde.metainfo.xml
 	for qm in i18n/*.qm; do \
 		install -Dm644 $$qm $(DESTDIR)$(PREFIX)/share/mailviewer-kde/translations/$$(basename $$qm); \
 	done
@@ -25,6 +27,7 @@ uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/mailviewer-kde
 	rm -f $(DESTDIR)$(PREFIX)/share/applications/io.github.shakaran.mailviewerkde.desktop
 	rm -f $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/io.github.shakaran.mailviewerkde.svg
+	rm -f $(DESTDIR)$(PREFIX)/share/metainfo/io.github.shakaran.mailviewerkde.metainfo.xml
 	rm -rf $(DESTDIR)$(PREFIX)/share/mailviewer-kde
 
 clean:

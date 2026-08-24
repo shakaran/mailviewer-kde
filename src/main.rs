@@ -44,6 +44,27 @@ fn translation_candidates(exe: Option<&std::path::Path>) -> Vec<std::path::PathB
     candidates
 }
 
+fn main() {
+    // Has to happen before the application exists.
+    unsafe { mailviewer_init_web_engine() };
+
+    let mut app = QGuiApplication::new();
+
+    let translations = translations_dir();
+    unsafe { mailviewer_install_translator(translations.as_ptr()) };
+    let mut engine = QQmlApplicationEngine::new();
+
+    if let Some(engine) = engine.as_mut() {
+        engine.load(&QUrl::from(
+            "qrc:/qt/qml/io/github/alescdb/mailviewer/qml/Main.qml",
+        ));
+    }
+
+    if let Some(app) = app.as_mut() {
+        app.exec();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::translation_candidates;
@@ -67,26 +88,5 @@ mod tests {
             candidates("/home/user/mailviewer-kde/target/release/mailviewer-kde")[0],
             PathBuf::from("/home/user/mailviewer-kde/target/release/i18n")
         );
-    }
-}
-
-fn main() {
-    // Has to happen before the application exists.
-    unsafe { mailviewer_init_web_engine() };
-
-    let mut app = QGuiApplication::new();
-
-    let translations = translations_dir();
-    unsafe { mailviewer_install_translator(translations.as_ptr()) };
-    let mut engine = QQmlApplicationEngine::new();
-
-    if let Some(engine) = engine.as_mut() {
-        engine.load(&QUrl::from(
-            "qrc:/qt/qml/io/github/alescdb/mailviewer/qml/Main.qml",
-        ));
-    }
-
-    if let Some(app) = app.as_mut() {
-        app.exec();
     }
 }

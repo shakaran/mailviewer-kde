@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.shakaran.mailviewerkde</id>
+  <name>MailViewer (KDE)</name>
+  <summary>Read eml and Outlook msg files</summary>
+  <launchable type="desktop-id">io.github.shakaran.mailviewerkde.desktop</launchable>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="io.github.shakaran">
+    <name>Ángel Guzmán Maeso</name>
+  </developer>
+  <description>
+    <p>Opens .eml and Outlook .msg files and shows the message: sender, recipients,
+      subject, date, the body as it was written, and the attachments.</p>
+    <p>Remote images stay blocked until you ask for them, scripts never run, and
+      attachments are extracted to a private folder before being handed to another
+      application.</p>
+    <p>A Qt6 frontend of MailViewer. Both read the files through the same core.</p>
+  </description>
+  <url type="homepage">https://github.com/shakaran/mailviewer-kde</url>
+  <url type="bugtracker">https://github.com/shakaran/mailviewer-kde/issues</url>
+  <url type="vcs-browser">https://github.com/shakaran/mailviewer-kde</url>
+  <content_rating type="oars-1.1" />
+  <categories>
+    <category>Network</category>
+    <category>Email</category>
+    <category>Utility</category>
+  </categories>
+  <provides>
+    <mediatype>message/rfc822</mediatype>
+    <mediatype>application/vnd.ms-outlook</mediatype>
+    <mediatype>application/x-ole-storage</mediatype>
+  </provides>
+  <releases>
+    <release version="0.1.0" date="2026-08-24">
+      <description>
+        <p>First release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
