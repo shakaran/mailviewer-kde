@@ -10,7 +10,7 @@ fn main() {
     .qt_module("Widgets")
     .qt_module("PrintSupport")
     .qt_module("Pdf")
-    .files(["src/bridge.rs"])
+    .files(["src/bridge.rs", "src/keybridge.rs"])
     .cpp_file("cpp/webengine.cpp")
     .cpp_file("cpp/i18n.cpp")
     .cpp_file("cpp/app.cpp")

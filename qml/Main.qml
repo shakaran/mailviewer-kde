@@ -65,6 +65,11 @@ ApplicationWindow {
         onActivated: window.printMessage()
     }
 
+    Keyring {
+        id: keyring
+        Component.onCompleted: keyring.refresh()
+    }
+
     Message {
         id: message
         Component.onCompleted: {
@@ -93,6 +98,10 @@ ApplicationWindow {
             ToolButton {
                 text: qsTr("Export as PDF")
                 onClicked: pdfDialog.open()
+            }
+            ToolButton {
+                text: qsTr("Keys")
+                onClicked: keyWindow.show()
             }
             ToolButton {
                 text: qsTr("Print")
@@ -124,6 +133,120 @@ ApplicationWindow {
                     message.reload()
                 }
             }
+        }
+    }
+
+    // Its own keyring, inside the data folder of the application. The keys of
+    // the user, in ~/.gnupg, are never read: what goes in here is imported.
+    Window {
+        id: keyWindow
+        title: qsTr("Keys")
+        width: 620
+        height: 420
+        color: palette.window
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            Label {
+                text: qsTr("Keys imported into MailViewer. Your own keyring is not read.")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+
+            Frame {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                ListView {
+                    id: keyList
+                    anchors.fill: parent
+                    clip: true
+                    model: keyring.keys
+                    spacing: 2
+
+                    delegate: RowLayout {
+                        id: row
+                        required property int index
+                        required property string modelData
+                        width: keyList.width
+
+                        Label {
+                            text: row.modelData
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+                        ToolButton {
+                            text: qsTr("Remove")
+                            onClicked: {
+                                removeDialog.fingerprint = keyring.fingerprints[row.index]
+                                removeDialog.who = row.modelData
+                                removeDialog.open()
+                            }
+                        }
+                    }
+
+                    Label {
+                        anchors.centerIn: parent
+                        visible: keyList.count === 0
+                        text: qsTr("No keys yet.")
+                    }
+                }
+            }
+
+            Label {
+                text: keyring.error
+                visible: text.length > 0
+                color: "red"
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    text: keyring.folder
+                    elide: Text.ElideMiddle
+                    Layout.fillWidth: true
+                    opacity: 0.7
+                }
+                Button {
+                    text: qsTr("Import a key")
+                    onClicked: keyDialog.open()
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: removeDialog
+        property string fingerprint: ""
+        property string who: ""
+        parent: keyWindow.contentItem
+        anchors.centerIn: parent
+        modal: true
+        title: qsTr("Remove this key?")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onAccepted: {
+            var error = keyring.remove_key(removeDialog.fingerprint)
+            if (error.length > 0) errorLabel.text = error
+        }
+
+        Label {
+            text: removeDialog.who
+            wrapMode: Text.Wrap
+        }
+    }
+
+    FileDialog {
+        id: keyDialog
+        title: qsTr("Import a key")
+        nameFilters: [qsTr("Key files (*.asc *.gpg *.pgp *.key)"), qsTr("All files (*)")]
+        onAccepted: {
+            var error = keyring.add_key(selectedFile)
+            if (error.length > 0) errorLabel.text = error
         }
     }
 
