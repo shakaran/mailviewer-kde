@@ -945,7 +945,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 [[package]]
 name = "mailviewer-core"
 version = "0.1.0"
-source = "git+https://github.com/alescdb/mailviewer-core?branch=main#5cbd67d22bee258d80797d0be93af82f202e009f"
+source = "git+https://github.com/alescdb/mailviewer-core?branch=main#ac463f589c551cb1824199993e7f01f03e5cae91"
 dependencies = [
  "ammonia",
  "base64",
