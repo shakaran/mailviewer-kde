@@ -343,10 +343,8 @@ mod tests {
     fn encrypted_message(home: &Path) -> String {
         let inner = "Content-Type: text/plain; charset=utf-8\r\n\r\n{SECRET}\r\n"
             .replace("{SECRET}", SECRET);
-        let plaintext = std::env::temp_dir().join(format!(
-            "mailviewer-kde-inner-{}.txt",
-            std::process::id()
-        ));
+        // Tests run side by side, so a name per call rather than per process.
+        let plaintext = home.join("inner.txt");
         fs::write(&plaintext, &inner).unwrap();
 
         let encrypted = Command::new("gpg")
