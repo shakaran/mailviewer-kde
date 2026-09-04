@@ -43,6 +43,14 @@ impl KeyStore {
             fs::set_permissions(&home, fs::Permissions::from_mode(0o700))
                 .map_err(|e| format!("{}: {}", home.display(), e))?;
         }
+        // The passphrase for decrypting arrives on a pipe, and the agent only
+        // takes it that way when it is told to. It is the default in most
+        // builds, and saying it here costs a line and removes the guessing.
+        let conf = home.join("gpg-agent.conf");
+        if !conf.exists() {
+            let _ = fs::write(&conf, "allow-loopback-pinentry\n");
+        }
+
         Ok(Self { home })
     }
 
