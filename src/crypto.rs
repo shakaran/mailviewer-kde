@@ -414,6 +414,19 @@ pub fn decrypt(path: &Path, data_dir: &Path, passphrase: &str) -> Result<Vec<u8>
     let store = KeyStore::open(data_dir).map_err(|_| DecryptError::Failed)?;
     let _guard = point_gpg_at(store.home());
 
+    // The ciphertext goes in a file rather than down the same pipe as the
+    // passphrase: gpg reads the passphrase from the first line of stdin and
+    // the message from the rest, and how much it takes in one read is not
+    // ours to count on. The file holds nothing that is not already encrypted.
+    let ciphertext = std::env::temp_dir().join(format!(
+        "mailviewer-kde-{}.asc",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|since| since.as_nanos())
+            .unwrap_or_default()
+    ));
+    std::fs::write(&ciphertext, &blob).map_err(|_| DecryptError::Failed)?;
+
     let mut child = Command::new("gpg")
         .arg("--homedir")
         .arg(store.home())
@@ -432,22 +445,20 @@ pub fn decrypt(path: &Path, data_dir: &Path, passphrase: &str) -> Result<Vec<u8>
             "2",
             "--decrypt",
         ])
+        .arg(&ciphertext)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|_| DecryptError::Failed)?;
 
-    {
-        let mut stdin = child.stdin.take().ok_or(DecryptError::Failed)?;
-        // The passphrase first, on its own line, then the message.
-        stdin
-            .write_all(format!("{passphrase}\n").as_bytes())
-            .map_err(|_| DecryptError::Failed)?;
-        stdin.write_all(&blob).map_err(|_| DecryptError::Failed)?;
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(format!("{passphrase}\n").as_bytes());
     }
 
     let output = child.wait_with_output().map_err(|_| DecryptError::Failed)?;
+    let _ = std::fs::remove_file(&ciphertext);
+
     if output.status.success() && !output.stdout.is_empty() {
         return Ok(output.stdout);
     }
