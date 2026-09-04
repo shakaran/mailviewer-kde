@@ -4,6 +4,7 @@
  */
 
 pub mod bridge;
+pub mod crypto;
 pub mod keybridge;
 pub mod keys;
 
