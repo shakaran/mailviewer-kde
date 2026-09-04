@@ -370,8 +370,13 @@ mod tests {
         let output = child.wait_with_output().unwrap();
         let _ = fs::remove_file(&ciphertext);
 
+        let version = Command::new("gpg").arg("--version").output();
+        let version = version
+            .map(|v| String::from_utf8_lossy(&v.stdout).lines().next().unwrap_or("").to_string())
+            .unwrap_or_default();
+
         format!(
-            "gpg said:\n{}\nkeys in the ring: {:?}",
+            "{version}\ngpg said:\n{}\nkeys in the ring: {:?}",
             String::from_utf8_lossy(&output.stderr),
             store.list().unwrap()
         )
