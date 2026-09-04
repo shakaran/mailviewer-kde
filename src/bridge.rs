@@ -62,6 +62,11 @@ pub mod qobject {
         // Checks the signature against the keyring of the application.
         #[qinvokable]
         fn check_signature(self: Pin<&mut Message>);
+
+        // Opens an encrypted message with a key from the keyring. Empty on
+        // success, otherwise a word saying what went wrong.
+        #[qinvokable]
+        fn open_encrypted(self: Pin<&mut Message>, passphrase: &QString) -> QString;
     }
 }
 
@@ -135,6 +140,37 @@ impl qobject::Message {
         self.as_mut().set_signature_detail(QString::from(&detail));
     }
 
+    fn open_encrypted(mut self: Pin<&mut Self>, passphrase: &QString) -> QString {
+        let path = self.path.clone();
+        let data = glib::user_data_dir().join("mailviewer-kde");
+
+        let inside = match crate::crypto::decrypt(
+            std::path::Path::new(&path),
+            &data,
+            &passphrase.to_string(),
+        ) {
+            Ok(inside) => inside,
+            Err(e) => return QString::from(e.as_str()),
+        };
+
+        let allow_remote = *self.allow_remote();
+        match render_inside(inside, allow_remote) {
+            Ok(message) => {
+                self.as_mut().set_body(QString::from(&message.body));
+                self.as_mut().set_attachments(names(&message.parts));
+                self.as_mut().rust_mut().parts = message.parts;
+                // What was inside is now on screen, so the banner changes.
+                self.as_mut().set_protection(QString::from("opened"));
+                self.as_mut().set_error(QString::from(""));
+                QString::from("")
+            }
+            Err(e) => {
+                self.as_mut().set_error(QString::from(&e.to_string()));
+                QString::from("failed")
+            }
+        }
+    }
+
     fn print_pdf(self: Pin<&mut Self>, path: &QString) -> QString {
         let path = gio::File::for_uri(&path.to_string())
             .path()
@@ -203,6 +239,39 @@ struct Loaded {
     date: String,
     body: String,
     parts: Vec<mailviewer_core::message::attachment::Attachment>,
+}
+
+/// Turns the mime entity that came out of the envelope into something to show,
+/// through the same reading and sanitizing every other message goes through.
+///
+/// It takes a detour through a file because the parser of the core reads
+/// files. The file is written in the private folder the attachments already
+/// use, and is removed as soon as it has been read.
+fn render_inside(
+    inside: Vec<u8>,
+    allow_remote: bool,
+) -> Result<Loaded, Box<dyn std::error::Error>> {
+    use std::io::Write;
+
+    let folder = mailviewer_core::message::message::TEMP_FOLDER.clone();
+    std::fs::create_dir_all(&folder)?;
+    let path = folder.join("opened.eml");
+
+    let mut file = std::fs::File::create(&path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    }
+    file.write_all(&inside)?;
+    drop(file);
+
+    let loaded = load(&path.to_string_lossy(), allow_remote);
+    let _ = std::fs::remove_file(&path);
+
+    let mut loaded = loaded?;
+    loaded.protection = "opened";
+    Ok(loaded)
 }
 
 /// What the list shows: the name, the type and how big it is.

@@ -9,13 +9,15 @@
 //! byte for byte is the hard part of PGP/MIME, and doing it by hand is how
 //! verification quietly starts saying "bad signature" for well formed mail.
 
+use std::io::Write;
 use std::path::Path;
+use std::process::{Command, Stdio};
 use std::sync::{Mutex, MutexGuard};
 
 use gmime::prelude::Cast;
 use gmime::traits::{
-    CertificateExt, MessageExt, MultipartSignedExt, ParserExt, SignatureExt, SignatureListExt,
-    StreamExt,
+    CertificateExt, DataWrapperExt, MessageExt, MultipartExt, MultipartSignedExt, ParserExt,
+    PartExt, SignatureExt, SignatureListExt, StreamExt, StreamMemExt,
 };
 use gmime::{glib::translate::IntoGlib, Parser, StreamMem};
 
@@ -287,6 +289,84 @@ mod tests {
         fs::remove_dir_all(dir).unwrap();
     }
 
+    /// The passphrase of tests/test-key-locked-secret.asc, a throwaway key
+    /// that exists only for these tests.
+    const PASSPHRASE: &str = "correct horse battery staple";
+
+    fn with_locked_key() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "mailviewer-kde-decrypt-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let store = KeyStore::open(&dir).unwrap();
+        store
+            .import(Path::new("tests/test-key-locked-secret.asc"))
+            .unwrap();
+        dir
+    }
+
+    #[test]
+    fn opens_a_message_with_the_right_passphrase() {
+        let dir = with_locked_key();
+
+        let inside = decrypt(
+            Path::new("tests/pgp-encrypted-locked.eml"),
+            &dir,
+            PASSPHRASE,
+        )
+        .unwrap();
+        let inside = String::from_utf8_lossy(&inside);
+
+        assert!(
+            inside.contains("El secreto es que no hay secreto."),
+            "what came out: {inside}"
+        );
+        assert!(inside.contains("text/plain"), "the headers came along too");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn says_when_the_passphrase_is_wrong() {
+        let dir = with_locked_key();
+
+        let opened = decrypt(
+            Path::new("tests/pgp-encrypted-locked.eml"),
+            &dir,
+            "not the passphrase",
+        );
+
+        assert_eq!(opened, Err(DecryptError::WrongPassphrase));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn says_when_the_private_key_is_not_here() {
+        let dir = with_key();
+
+        let opened = decrypt(
+            Path::new("tests/pgp-encrypted-locked.eml"),
+            &dir,
+            PASSPHRASE,
+        );
+
+        assert_eq!(opened, Err(DecryptError::NoSecretKey));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn says_when_there_is_nothing_to_open() {
+        let dir = with_locked_key();
+
+        let opened = decrypt(Path::new("tests/pgp-signed.eml"), &dir, PASSPHRASE);
+
+        assert_eq!(opened, Err(DecryptError::NotEncrypted));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn says_nothing_about_a_message_without_a_signature() {
         let dir = with_key();
@@ -297,4 +377,160 @@ mod tests {
 
         fs::remove_dir_all(dir).unwrap();
     }
+}
+
+/// Why a message could not be opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecryptError {
+    /// The passphrase does not open the key.
+    WrongPassphrase,
+    /// The message was encrypted to a key whose private half is not here.
+    NoSecretKey,
+    /// Nothing in the message is encrypted.
+    NotEncrypted,
+    /// gpg said no for some other reason.
+    Failed,
+}
+
+impl DecryptError {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DecryptError::WrongPassphrase => "wrong-passphrase",
+            DecryptError::NoSecretKey => "no-secret-key",
+            DecryptError::NotEncrypted => "not-encrypted",
+            DecryptError::Failed => "failed",
+        }
+    }
+}
+
+/// Opens the encrypted part of the message and gives back what was inside: a
+/// mime entity, headers included, ready to be parsed like any message.
+///
+/// gpg is driven here rather than through gmime because the passphrase has to
+/// come from the window: the KDE runtime carries no pinentry, so gpg has
+/// nobody to ask.
+pub fn decrypt(path: &Path, data_dir: &Path, passphrase: &str) -> Result<Vec<u8>, DecryptError> {
+    let blob = encrypted_blob(path).ok_or(DecryptError::NotEncrypted)?;
+    let store = KeyStore::open(data_dir).map_err(|_| DecryptError::Failed)?;
+    let _guard = point_gpg_at(store.home());
+
+    let mut child = Command::new("gpg")
+        .arg("--homedir")
+        .arg(store.home())
+        .args([
+            "--batch",
+            "--quiet",
+            "--no-tty",
+            // The passphrase arrives on a pipe, so no pinentry is needed.
+            "--pinentry-mode",
+            "loopback",
+            "--passphrase-fd",
+            "0",
+            // Codes rather than prose: what gpg writes for a person is in the
+            // language of the machine it runs on.
+            "--status-fd",
+            "2",
+            "--decrypt",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|_| DecryptError::Failed)?;
+
+    {
+        let mut stdin = child.stdin.take().ok_or(DecryptError::Failed)?;
+        // The passphrase first, on its own line, then the message.
+        stdin
+            .write_all(format!("{passphrase}\n").as_bytes())
+            .map_err(|_| DecryptError::Failed)?;
+        stdin.write_all(&blob).map_err(|_| DecryptError::Failed)?;
+    }
+
+    let output = child.wait_with_output().map_err(|_| DecryptError::Failed)?;
+    if output.status.success() && !output.stdout.is_empty() {
+        return Ok(output.stdout);
+    }
+
+    Err(reason(&String::from_utf8_lossy(&output.stderr)))
+}
+
+/// Reads the status lines of gpg, the ones written for a program.
+///
+/// A wrong passphrase and a missing private key both end in NO_SECKEY, since
+/// gpg cannot tell a key it may not open from one it does not have. What tells
+/// them apart is the number on the ERROR line.
+fn reason(status: &str) -> DecryptError {
+    // gpg packs the source of the error in the high bits and the code in the
+    // low ones. 11 is a bad passphrase, 17 is no secret key.
+    const BAD_PASSPHRASE: u32 = 11;
+    const NO_SECRET_KEY: u32 = 17;
+
+    let mut found: Option<DecryptError> = None;
+
+    for line in status.lines() {
+        let Some(code) = line.strip_prefix("[GNUPG:] ") else {
+            continue;
+        };
+        if code.starts_with("BAD_PASSPHRASE") || code.starts_with("MISSING_PASSPHRASE") {
+            return DecryptError::WrongPassphrase;
+        }
+        if let Some(number) = code.strip_prefix("ERROR ").and_then(gpg_error_code) {
+            match number {
+                BAD_PASSPHRASE => return DecryptError::WrongPassphrase,
+                NO_SECRET_KEY => found = Some(DecryptError::NoSecretKey),
+                _ => {}
+            }
+        }
+        if code.starts_with("NO_SECKEY") && found.is_none() {
+            found = Some(DecryptError::NoSecretKey);
+        }
+    }
+
+    found.unwrap_or(DecryptError::Failed)
+}
+
+/// "pkdecrypt_failed 67108875" -> 11
+fn gpg_error_code(rest: &str) -> Option<u32> {
+    let number: u32 = rest.split_whitespace().nth(1)?.parse().ok()?;
+    Some(number & 0xFFFF)
+}
+
+/// The armored block a PGP/MIME message carries, or the body of one that
+/// carries the block inline.
+fn encrypted_blob(path: &Path) -> Option<Vec<u8>> {
+    let data = std::fs::read(path).ok()?;
+    let stream = StreamMem::with_buffer(&data);
+    let parser = Parser::with_stream(&stream);
+    let message = parser.construct_message(None)?;
+
+    let mut blob: Option<Vec<u8>> = None;
+    message.foreach(|_, current| {
+        if blob.is_some() {
+            return;
+        }
+        if let Some(encrypted) = current.dynamic_cast_ref::<gmime::MultipartEncrypted>() {
+            // Part 0 says which version of the protocol, part 1 is the message.
+            if let Some(part) = encrypted.part(1) {
+                blob = part_bytes(&part);
+            }
+        }
+    });
+    stream.close();
+
+    // The older style puts the block straight in the body of a text part.
+    if blob.is_none() && data.windows(27).any(|w| w == b"-----BEGIN PGP MESSAGE-----") {
+        return Some(data);
+    }
+    blob
+}
+
+fn part_bytes(object: &gmime::Object) -> Option<Vec<u8>> {
+    let part = object.dynamic_cast_ref::<gmime::Part>()?;
+    let content = part.content()?;
+    let stream = StreamMem::new();
+    content.write_to_stream(&stream);
+    stream.flush();
+    let bytes = stream.byte_array()?;
+    Some(bytes.to_vec())
 }

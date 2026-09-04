@@ -32,6 +32,9 @@ What is wired, second half:
   removing keys. `~/.gnupg` is never read, and the sandbox is not opened for it.
 - Checking the signature of a signed message against that keyring, saying who
   signed it and whether the key is one you certified.
+- Opening an encrypted message with a key from that keyring. The passphrase is
+  asked for in the window and handed to gpg on a pipe, since the KDE runtime
+  carries no pinentry.
 - Translations in Spanish, French, Italian and Dutch, loaded from the locale.
 - A desktop entry, an icon and `make install`.
 
