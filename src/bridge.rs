@@ -27,6 +27,12 @@ pub mod qobject {
         #[qproperty(QString, error)]
         // What the message says about itself: empty, "signed" or "encrypted".
         #[qproperty(QString, protection)]
+        // What checking the signature said, empty until it is checked: one of
+        // good, good-untrusted, no-key, bad, none, error.
+        #[qproperty(QString, signature)]
+        // Who signed, or why it does not hold. The window turns the pair into
+        // a sentence in the language of the user.
+        #[qproperty(QString, signature_detail)]
         #[qproperty(bool, allow_remote)]
         #[qproperty(QStringList, attachments)]
         type Message = super::MessageRust;
@@ -52,6 +58,10 @@ pub mod qobject {
         // removes it afterwards. Empty when it went out or was cancelled.
         #[qinvokable]
         fn print_pdf(self: Pin<&mut Message>, path: &QString) -> QString;
+
+        // Checks the signature against the keyring of the application.
+        #[qinvokable]
+        fn check_signature(self: Pin<&mut Message>);
     }
 }
 
@@ -75,6 +85,8 @@ pub struct MessageRust {
     body: QString,
     error: QString,
     protection: QString,
+    signature: QString,
+    signature_detail: QString,
     allow_remote: bool,
     path: String,
     attachments: QStringList,
@@ -103,6 +115,24 @@ impl qobject::Message {
             Ok(()) => QString::from(""),
             Err(e) => QString::from(&e.to_string()),
         }
+    }
+
+    fn check_signature(mut self: Pin<&mut Self>) {
+        let path = self.path.clone();
+        let data = glib::user_data_dir().join("mailviewer-kde");
+
+        let (status, detail) = match crate::crypto::verify(std::path::Path::new(&path), &data) {
+            // Mail with more than one signature is rare, and the first one is
+            // the one the window has room for.
+            Ok(signatures) => match signatures.first() {
+                Some(signature) => (signature.status(), signature.detail()),
+                None => ("none", String::new()),
+            },
+            Err(e) => ("error", e),
+        };
+
+        self.as_mut().set_signature(QString::from(status));
+        self.as_mut().set_signature_detail(QString::from(&detail));
     }
 
     fn print_pdf(self: Pin<&mut Self>, path: &QString) -> QString {

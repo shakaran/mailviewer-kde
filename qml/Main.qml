@@ -38,6 +38,38 @@ ApplicationWindow {
         view.printToPdf(folder.toString().replace(/^file:\/\//, "") + "/mailviewer-kde-print.pdf")
     }
 
+    // The check gives back a word and a detail, the sentence is built here so
+    // it can be said in the language of the user.
+    function signatureText() {
+        var who = message.signature_detail
+        switch (message.signature) {
+        case "good":
+            return qsTr("Signed by %1, and the key is trusted.").arg(who)
+        case "good-untrusted":
+            return qsTr("Signed by %1. Nobody has certified that the key belongs to them.").arg(who)
+        case "no-key":
+            return qsTr("Signed with a key that is not in the keyring (%1).").arg(who)
+        case "bad":
+            return qsTr("The signature does not hold: %1").arg(window.signatureReason(who))
+        case "none":
+            return qsTr("This message carries no signature after all.")
+        case "error":
+            return qsTr("The signature could not be checked: %1").arg(who)
+        default:
+            return qsTr("This message is signed. The signature has not been checked.")
+        }
+    }
+
+    function signatureReason(reason) {
+        switch (reason) {
+        case "changed":           return qsTr("the message does not match the signature")
+        case "key-revoked":       return qsTr("the key was revoked")
+        case "key-expired":       return qsTr("the key has expired")
+        case "signature-expired": return qsTr("the signature has expired")
+        default:                  return qsTr("gpg could not check it")
+        }
+    }
+
     function clampZoom(value) {
         return Math.min(window.zoomMax, Math.max(window.zoomMin, value))
     }
@@ -300,19 +332,30 @@ ApplicationWindow {
         Rectangle {
             visible: message.protection.length > 0
             Layout.fillWidth: true
-            implicitHeight: protectionLabel.implicitHeight + 12
+            implicitHeight: protectionLabel.implicitHeight + 16
             color: palette.alternateBase
             border.color: palette.mid
             radius: 4
 
-            Label {
-                id: protectionLabel
+            RowLayout {
                 anchors.fill: parent
                 anchors.margins: 6
-                wrapMode: Text.Wrap
-                text: message.protection === "encrypted"
-                    ? qsTr("This message is encrypted. MailViewer cannot show what is inside.")
-                    : qsTr("This message is signed. MailViewer does not check the signature.")
+
+                Label {
+                    id: protectionLabel
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    text: {
+                        if (message.protection === "encrypted")
+                            return qsTr("This message is encrypted. MailViewer cannot show what is inside.")
+                        return window.signatureText()
+                    }
+                }
+                Button {
+                    text: qsTr("Check the signature")
+                    visible: message.protection === "signed" && message.signature.length === 0
+                    onClicked: message.check_signature()
+                }
             }
         }
 
