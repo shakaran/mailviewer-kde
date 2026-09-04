@@ -313,12 +313,17 @@ mod tests {
     fn opens_a_message_with_the_right_passphrase() {
         let dir = with_locked_key();
 
-        let inside = decrypt(
+        let opened = decrypt(
             Path::new("tests/pgp-encrypted-locked.eml"),
             &dir,
             PASSPHRASE,
-        )
-        .unwrap();
+        );
+        let inside = match opened {
+            Ok(inside) => inside,
+            // What gpg said, so a machine where this fails can be read rather
+            // than guessed at.
+            Err(e) => panic!("{e:?}\n{}", what_gpg_said(&dir)),
+        };
         let inside = String::from_utf8_lossy(&inside);
 
         assert!(
@@ -327,6 +332,49 @@ mod tests {
         );
         assert!(inside.contains("text/plain"), "the headers came along too");
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Runs the same decryption by hand and hands back the status lines.
+    fn what_gpg_said(dir: &Path) -> String {
+        let store = KeyStore::open(dir).unwrap();
+        let blob = encrypted_blob(Path::new("tests/pgp-encrypted-locked.eml")).unwrap();
+        let ciphertext = std::env::temp_dir().join("mailviewer-kde-said.asc");
+        fs::write(&ciphertext, &blob).unwrap();
+
+        let mut child = Command::new("gpg")
+            .arg("--homedir")
+            .arg(store.home())
+            .args([
+                "--batch",
+                "--no-tty",
+                "--pinentry-mode",
+                "loopback",
+                "--passphrase-fd",
+                "0",
+                "--status-fd",
+                "2",
+                "--decrypt",
+            ])
+            .arg(&ciphertext)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(format!("{PASSPHRASE}\n").as_bytes())
+            .unwrap();
+        let output = child.wait_with_output().unwrap();
+        let _ = fs::remove_file(&ciphertext);
+
+        format!(
+            "gpg said:\n{}\nkeys in the ring: {:?}",
+            String::from_utf8_lossy(&output.stderr),
+            store.list().unwrap()
+        )
     }
 
     #[test]
