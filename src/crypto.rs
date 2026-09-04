@@ -505,18 +505,30 @@ pub fn decrypt(path: &Path, data_dir: &Path, passphrase: &str) -> Result<Vec<u8>
         .spawn()
         .map_err(|_| DecryptError::Failed)?;
 
-    if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(format!("{passphrase}\n").as_bytes());
-    }
+    // Not ignored: a passphrase that never reaches gpg looks exactly like a
+    // wrong one, and that is a bad half hour for whoever debugs it.
+    let handed_over = match child.stdin.take() {
+        Some(mut stdin) => stdin.write_all(format!("{passphrase}\n").as_bytes()),
+        None => Ok(()),
+    };
 
     let output = child.wait_with_output().map_err(|_| DecryptError::Failed)?;
     let _ = std::fs::remove_file(&ciphertext);
+
+    if let Err(e) = handed_over {
+        log_write_failure(&e);
+        return Err(DecryptError::Failed);
+    }
 
     if output.status.success() && !output.stdout.is_empty() {
         return Ok(output.stdout);
     }
 
     Err(reason(&String::from_utf8_lossy(&output.stderr)))
+}
+
+fn log_write_failure(e: &std::io::Error) {
+    eprintln!("the passphrase never reached gpg: {e}");
 }
 
 /// Reads the status lines of gpg, the ones written for a program.
