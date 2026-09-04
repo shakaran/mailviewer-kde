@@ -334,50 +334,67 @@ mod tests {
         fs::remove_dir_all(dir).unwrap();
     }
 
-    /// Runs the same decryption by hand and hands back the status lines.
+    /// Tries the three ways of handing gpg a passphrase and reports which
+    /// ones open the message, so a machine where this fails can be read.
     fn what_gpg_said(dir: &Path) -> String {
         let store = KeyStore::open(dir).unwrap();
         let blob = encrypted_blob(Path::new("tests/pgp-encrypted-locked.eml")).unwrap();
         let ciphertext = std::env::temp_dir().join("mailviewer-kde-said.asc");
         fs::write(&ciphertext, &blob).unwrap();
+        let passphrase_file = std::env::temp_dir().join("mailviewer-kde-said.txt");
+        fs::write(&passphrase_file, PASSPHRASE).unwrap();
 
-        let mut child = Command::new("gpg")
-            .arg("--homedir")
-            .arg(store.home())
-            .args([
-                "--batch",
-                "--no-tty",
-                "--pinentry-mode",
-                "loopback",
-                "--passphrase-fd",
-                "0",
-                "--status-fd",
-                "2",
-                "--decrypt",
-            ])
-            .arg(&ciphertext)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(format!("{PASSPHRASE}\n").as_bytes())
-            .unwrap();
-        let output = child.wait_with_output().unwrap();
-        let _ = fs::remove_file(&ciphertext);
+        let common = |extra: Vec<String>| -> (bool, String) {
+            let mut command = Command::new("gpg");
+            command
+                .arg("--homedir")
+                .arg(store.home())
+                .args(["--batch", "--no-tty", "--pinentry-mode", "loopback"])
+                .args(extra)
+                .args(["--status-fd", "2", "--decrypt"])
+                .arg(&ciphertext)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+            let mut child = command.spawn().unwrap();
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(format!("{PASSPHRASE}\n").as_bytes())
+                .unwrap();
+            let output = child.wait_with_output().unwrap();
+            (
+                output.status.success(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+        };
 
-        let version = Command::new("gpg").arg("--version").output();
-        let version = version
-            .map(|v| String::from_utf8_lossy(&v.stdout).lines().next().unwrap_or("").to_string())
+        let (fd_ok, fd_said) = common(vec!["--passphrase-fd".into(), "0".into()]);
+        let (literal_ok, _) = common(vec!["--passphrase".into(), PASSPHRASE.into()]);
+        let (file_ok, _) = common(vec![
+            "--passphrase-file".into(),
+            passphrase_file.to_string_lossy().into_owned(),
+        ]);
+
+        let version = Command::new("gpg")
+            .arg("--version")
+            .output()
+            .map(|v| {
+                String::from_utf8_lossy(&v.stdout)
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            })
             .unwrap_or_default();
 
+        let _ = fs::remove_file(&ciphertext);
+        let _ = fs::remove_file(&passphrase_file);
+
         format!(
-            "{version}\ngpg said:\n{}\nkeys in the ring: {:?}",
-            String::from_utf8_lossy(&output.stderr),
+            "{version}\npassphrase-fd: {fd_ok}, passphrase: {literal_ok}, passphrase-file: {file_ok}\n\
+             gpg said:\n{fd_said}\nkeys in the ring: {:?}",
             store.list().unwrap()
         )
     }
