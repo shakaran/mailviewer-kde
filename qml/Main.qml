@@ -60,6 +60,15 @@ ApplicationWindow {
         }
     }
 
+    function decryptProblem(what) {
+        switch (what) {
+        case "wrong-passphrase": return qsTr("That passphrase does not open the key.")
+        case "no-secret-key":    return qsTr("The key this message was encrypted to is not in the keyring.")
+        case "not-encrypted":    return qsTr("There is nothing encrypted in this message.")
+        default:                 return qsTr("The message could not be decrypted.")
+        }
+    }
+
     function signatureReason(reason) {
         switch (reason) {
         case "changed":           return qsTr("the message does not match the signature")
@@ -253,6 +262,50 @@ ApplicationWindow {
     }
 
     Dialog {
+        id: passphraseDialog
+        property string problem: ""
+        anchors.centerIn: parent
+        modal: true
+        width: 420
+        title: qsTr("Decrypt this message")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onAccepted: {
+            var failed = message.open_encrypted(passphraseField.text)
+            // The passphrase has no business staying in the window.
+            passphraseField.text = ""
+            if (failed.length > 0) {
+                passphraseDialog.problem = window.decryptProblem(failed)
+                passphraseDialog.open()
+            }
+        }
+        onRejected: passphraseField.text = ""
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 6
+
+            Label {
+                text: qsTr("The passphrase of the key this message was encrypted to.")
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            TextField {
+                id: passphraseField
+                echoMode: TextInput.Password
+                Layout.fillWidth: true
+                onAccepted: passphraseDialog.accept()
+            }
+            Label {
+                text: passphraseDialog.problem
+                visible: text.length > 0
+                color: "red"
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    Dialog {
         id: removeDialog
         property string fingerprint: ""
         property string who: ""
@@ -347,7 +400,9 @@ ApplicationWindow {
                     wrapMode: Text.Wrap
                     text: {
                         if (message.protection === "encrypted")
-                            return qsTr("This message is encrypted. MailViewer cannot show what is inside.")
+                            return qsTr("This message is encrypted. Decrypt it with a key from the keyring.")
+                        if (message.protection === "opened")
+                            return qsTr("This message was encrypted. What follows was decrypted here.")
                         return window.signatureText()
                     }
                 }
@@ -355,6 +410,15 @@ ApplicationWindow {
                     text: qsTr("Check the signature")
                     visible: message.protection === "signed" && message.signature.length === 0
                     onClicked: message.check_signature()
+                }
+                Button {
+                    text: qsTr("Decrypt")
+                    visible: message.protection === "encrypted"
+                    onClicked: {
+                        passphraseField.text = ""
+                        passphraseDialog.problem = ""
+                        passphraseDialog.open()
+                    }
                 }
             }
         }
