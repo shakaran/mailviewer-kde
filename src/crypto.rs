@@ -289,11 +289,16 @@ mod tests {
         fs::remove_dir_all(dir).unwrap();
     }
 
-    /// The passphrase of tests/test-key-locked-secret.asc, a throwaway key
-    /// that exists only for these tests.
+    /// The passphrase of the key the tests below make for themselves.
     const PASSPHRASE: &str = "correct horse battery staple";
+    const SECRET: &str = "El secreto es que no hay secreto.";
 
-    fn with_locked_key() -> PathBuf {
+    /// A keyring with a key that has a passphrase, made here rather than
+    /// carried in the repository: a key made by one version of gpg is not
+    /// always one another version can open, and this way the gpg that runs
+    /// the test is the one that made it. It also keeps a private key out of
+    /// the repository.
+    fn with_locked_key() -> (PathBuf, PathBuf) {
         let dir = std::env::temp_dir().join(format!(
             "mailviewer-kde-decrypt-{}",
             std::time::SystemTime::now()
@@ -303,111 +308,112 @@ mod tests {
         ));
         fs::create_dir_all(&dir).unwrap();
         let store = KeyStore::open(&dir).unwrap();
-        store
-            .import(Path::new("tests/test-key-locked-secret.asc"))
-            .unwrap();
-        dir
-    }
+        let home = store.home().to_path_buf();
 
-    #[test]
-    fn opens_a_message_with_the_right_passphrase() {
-        let dir = with_locked_key();
-
-        let opened = decrypt(
-            Path::new("tests/pgp-encrypted-locked.eml"),
-            &dir,
-            PASSPHRASE,
-        );
-        let inside = match opened {
-            Ok(inside) => inside,
-            // What gpg said, so a machine where this fails can be read rather
-            // than guessed at.
-            Err(e) => panic!("{e:?}\n{}", what_gpg_said(&dir)),
-        };
-        let inside = String::from_utf8_lossy(&inside);
-
-        assert!(
-            inside.contains("El secreto es que no hay secreto."),
-            "what came out: {inside}"
-        );
-        assert!(inside.contains("text/plain"), "the headers came along too");
-        fs::remove_dir_all(dir).unwrap();
-    }
-
-    /// Tries the three ways of handing gpg a passphrase and reports which
-    /// ones open the message, so a machine where this fails can be read.
-    fn what_gpg_said(dir: &Path) -> String {
-        let store = KeyStore::open(dir).unwrap();
-        let blob = encrypted_blob(Path::new("tests/pgp-encrypted-locked.eml")).unwrap();
-        let ciphertext = std::env::temp_dir().join("mailviewer-kde-said.asc");
-        fs::write(&ciphertext, &blob).unwrap();
-        let passphrase_file = std::env::temp_dir().join("mailviewer-kde-said.txt");
-        fs::write(&passphrase_file, PASSPHRASE).unwrap();
-
-        let common = |extra: Vec<String>| -> (bool, String) {
-            let mut command = Command::new("gpg");
-            command
-                .arg("--homedir")
-                .arg(store.home())
-                .args(["--batch", "--no-tty", "--pinentry-mode", "loopback"])
-                .args(extra)
-                .args(["--status-fd", "2", "--decrypt"])
-                .arg(&ciphertext)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-            let mut child = command.spawn().unwrap();
-            child
-                .stdin
-                .take()
-                .unwrap()
-                .write_all(format!("{PASSPHRASE}\n").as_bytes())
-                .unwrap();
-            let output = child.wait_with_output().unwrap();
-            (
-                output.status.success(),
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            )
-        };
-
-        let (fd_ok, fd_said) = common(vec!["--passphrase-fd".into(), "0".into()]);
-        let (literal_ok, _) = common(vec!["--passphrase".into(), PASSPHRASE.into()]);
-        let (file_ok, _) = common(vec![
-            "--passphrase-file".into(),
-            passphrase_file.to_string_lossy().into_owned(),
-        ]);
-
-        let version = Command::new("gpg")
-            .arg("--version")
+        let made = Command::new("gpg")
+            .arg("--homedir")
+            .arg(&home)
+            .args([
+                "--batch",
+                "--quiet",
+                "--pinentry-mode",
+                "loopback",
+                "--passphrase",
+                PASSPHRASE,
+                "--quick-generate-key",
+                "MailViewer Locked <locked@example.com>",
+                "default",
+                "default",
+                "never",
+            ])
             .output()
-            .map(|v| {
-                String::from_utf8_lossy(&v.stdout)
-                    .lines()
-                    .next()
-                    .unwrap_or("")
-                    .to_string()
-            })
-            .unwrap_or_default();
+            .unwrap();
+        assert!(
+            made.status.success(),
+            "could not make a key: {}",
+            String::from_utf8_lossy(&made.stderr)
+        );
 
-        let _ = fs::remove_file(&ciphertext);
-        let _ = fs::remove_file(&passphrase_file);
+        let message = dir.join("encrypted.eml");
+        fs::write(&message, encrypted_message(&home)).unwrap();
+        (dir, message)
+    }
+
+    /// A PGP/MIME message encrypted to the key that lives in `home`.
+    fn encrypted_message(home: &Path) -> String {
+        let inner = "Content-Type: text/plain; charset=utf-8\r\n\r\n{SECRET}\r\n"
+            .replace("{SECRET}", SECRET);
+        let plaintext = std::env::temp_dir().join(format!(
+            "mailviewer-kde-inner-{}.txt",
+            std::process::id()
+        ));
+        fs::write(&plaintext, &inner).unwrap();
+
+        let encrypted = Command::new("gpg")
+            .arg("--homedir")
+            .arg(home)
+            .args([
+                "--batch",
+                "--quiet",
+                "--armor",
+                "--trust-model",
+                "always",
+                "--recipient",
+                "locked@example.com",
+                "--encrypt",
+                "--output",
+                "-",
+            ])
+            .arg(&plaintext)
+            .output()
+            .unwrap();
+        let _ = fs::remove_file(&plaintext);
+        assert!(
+            encrypted.status.success(),
+            "could not encrypt: {}",
+            String::from_utf8_lossy(&encrypted.stderr)
+        );
+        let armored = String::from_utf8_lossy(&encrypted.stdout).replace('\n', "\r\n");
 
         format!(
-            "{version}\npassphrase-fd: {fd_ok}, passphrase: {literal_ok}, passphrase-file: {file_ok}\n\
-             gpg said:\n{fd_said}\nkeys in the ring: {:?}",
-            store.list().unwrap()
+            "From: MailViewer Locked <locked@example.com>\r\n\
+             To: Someone <someone@example.com>\r\n\
+             Subject: Lorem ipsum\r\n\
+             Date: Mon, 24 Aug 2026 09:00:00 +0200\r\n\
+             MIME-Version: 1.0\r\n\
+             Content-Type: multipart/encrypted;\r\n\
+             \x20protocol=\"application/pgp-encrypted\"; boundary=\"enc-boundary\"\r\n\
+             \r\n\
+             --enc-boundary\r\n\
+             Content-Type: application/pgp-encrypted\r\n\
+             \r\n\
+             Version: 1\r\n\
+             \r\n\
+             --enc-boundary\r\n\
+             Content-Type: application/octet-stream; name=\"encrypted.asc\"\r\n\
+             \r\n\
+             {armored}\r\n\
+             --enc-boundary--\r\n"
         )
     }
 
     #[test]
-    fn says_when_the_passphrase_is_wrong() {
-        let dir = with_locked_key();
+    fn opens_a_message_with_the_right_passphrase() {
+        let (dir, message) = with_locked_key();
 
-        let opened = decrypt(
-            Path::new("tests/pgp-encrypted-locked.eml"),
-            &dir,
-            "not the passphrase",
-        );
+        let inside = decrypt(&message, &dir, PASSPHRASE).unwrap();
+        let inside = String::from_utf8_lossy(&inside);
+
+        assert!(inside.contains(SECRET), "what came out: {inside}");
+        assert!(inside.contains("text/plain"), "the headers came along too");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn says_when_the_passphrase_is_wrong() {
+        let (dir, message) = with_locked_key();
+
+        let opened = decrypt(&message, &dir, "not the passphrase");
 
         assert_eq!(opened, Err(DecryptError::WrongPassphrase));
         fs::remove_dir_all(dir).unwrap();
@@ -415,21 +421,20 @@ mod tests {
 
     #[test]
     fn says_when_the_private_key_is_not_here() {
-        let dir = with_key();
+        let (locked, message) = with_locked_key();
+        // A keyring that never saw that key.
+        let empty = empty();
 
-        let opened = decrypt(
-            Path::new("tests/pgp-encrypted-locked.eml"),
-            &dir,
-            PASSPHRASE,
-        );
+        let opened = decrypt(&message, &empty, PASSPHRASE);
 
         assert_eq!(opened, Err(DecryptError::NoSecretKey));
-        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(locked).unwrap();
+        fs::remove_dir_all(empty).unwrap();
     }
 
     #[test]
     fn says_when_there_is_nothing_to_open() {
-        let dir = with_locked_key();
+        let (dir, _) = with_locked_key();
 
         let opened = decrypt(Path::new("tests/pgp-signed.eml"), &dir, PASSPHRASE);
 
