@@ -30,6 +30,8 @@ What is wired, second half:
 - Zoom with the usual shortcuts, remembered between sessions.
 - A keyring of its own, in the data folder of the application, with importing and
   removing keys. `~/.gnupg` is never read, and the sandbox is not opened for it.
+- Checking the signature of a signed message against that keyring, saying who
+  signed it and whether the key is one you certified.
 - Translations in Spanish, French, Italian and Dutch, loaded from the locale.
 - A desktop entry, an icon and `make install`.
 
