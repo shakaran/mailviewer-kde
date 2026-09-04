@@ -34,7 +34,8 @@ What is wired, second half:
   signed it and whether the key is one you certified.
 - Opening an encrypted message with a key from that keyring. The passphrase is
   asked for in the window and handed to gpg on a pipe, since the KDE runtime
-  carries no pinentry.
+  carries no pinentry. The tests make their own key with the gpg of the machine
+  they run on, so no private key is carried here.
 - Translations in Spanish, French, Italian and Dutch, loaded from the locale.
 - A desktop entry, an icon and `make install`.
 
